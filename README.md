@@ -18,3 +18,13 @@ This is the repo with a PhD project I have been working on to create an embeddin
 ### What is the end goal?
 The task here is to find an embedding that can represent any scFv sequence in a lower dimensional space, i.e. from about 300 amino acids (timesteps) to 2 dimensions (possibly more). Two dimensions is ideal as it is easy to visualise the projection of each sequence with scatter plots and clusters are easy to identify. However, higher dimensions allow the model to encode sequences with a lower information loss.
 The embedding can then be fed to another algorithm, i.e. SVM, ANN, Random Forest, etc. to predict certain features. In my work I am specifically looking at predicting scFv thermostability.
+
+### Example:
+- AutoencoderV6:
+
+![Alt text](images/autoencoderV6.png?raw=true "Autoencoder")
+
+- Scatter plot looking at germlines:
+
+The autoencoder projects the sequences into clusters corresponding to their germlines, without any sequence alignment.
+![Alt text](images/autoencoderV6_germline.png?raw=true "Scatter plot")
