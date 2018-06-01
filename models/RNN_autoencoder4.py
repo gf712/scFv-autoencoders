@@ -4,6 +4,7 @@ import keras
 import tensorflow as tf
 from .defines import VH_LENGTH, VL_LENGTH
 from .loss_functions import get_loss
+from .model_utils import check_rnn_cell
 
 
 def autoencoderV4(input_dims, latent_dim=2, RNN_cell='GRU', compile=True):
@@ -30,29 +31,7 @@ def autoencoderV4(input_dims, latent_dim=2, RNN_cell='GRU', compile=True):
     # Create a session with the above options specified.
     K.tensorflow_backend.set_session(session=sess)
 
-    if isinstance(RNN_cell, str):
-        if RNN_cell == 'GRU':
-            if keras.__version__ > '2.0.9':
-                # use cudnn GRU -> optimised to use GPU
-                RNN = L.CuDNNGRU
-            else:
-                RNN = L.GRU
-        elif RNN_cell == 'LSTM':
-            if keras.__version__ > '2.0.9':
-                RNN = L.CuDNNLSTM
-            else:
-                RNN = L.LSTM
-        else:
-            RNN = L.SimpleRNN
-
-    elif hasattr(RNN_cell, 'mro'):
-        # does this always work...?
-        # this checks if RNN_cell is a child of keras.layers.RNN
-        if RNN_cell.mro()[-3] == L.RNN:
-            RNN = RNN_cell
-
-    else:
-        raise ValueError("Unknown RNN_cell object!")
+    RNN = check_rnn_cell(RNN_cell)
 
     # define input
     input = L.Input((VL_LENGTH+VH_LENGTH, input_dims), dtype='float', name='INPUT')

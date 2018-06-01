@@ -1,4 +1,4 @@
-from keras import backend as K
+from .model_utils import check_rnn_cell
 from keras import layers as L
 import keras
 import tensorflow as tf
@@ -9,14 +9,28 @@ from .loss_functions import get_loss
 def autoencoderV1(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compile=True):
 
     """
+    Two input and output autoencoders:
+     - Encoder:
+        - RNN(16)   | RNN(16)
+        - Dense(32) | Dense(32)
+        - Merge(64)
+        - Dense(32)
+        - Dense(latent_dim)
+     - Decoder:
+        - Dense(32)
+        - Dense(64)
+        - Dense(16) | Dense(16)
+        - RNN(16)   | RNN(16)
+        - TemporalDense(input_dims) | TemporalDense(input_dims)
 
-
-    :param input_dims:
-    :param latent_dim:
+    :param input_dims: Number of features per timestep
+    :param latent_dim: Dimensions of latent vector
     :param cuda_device:
-    :param RNN_cell:
-    :param compile:
-    :return:
+    :param RNN_cell: RNN_cell type to use. If string is provided must be 'GRU' or 'LSMT' else it is interpreted as RNN
+                     Also accepts objects from classes that inherit keras.layers.RNN
+    :param compile: Whether to compile the model, if yes it will use the masked MSE loss function
+                    (see loss_functions.py)
+    :return: autoencoder keras.models.Model object, encoder autoencoder keras.models.Model object, session tf.Session
     """
 
     # set GPU for memory allocation
@@ -25,29 +39,7 @@ def autoencoderV1(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
     sess = tf.Session(config=config)
     # K.set_session(sess)
 
-    if isinstance(RNN_cell, str):
-        if RNN_cell == 'GRU':
-            if keras.__version__ > '2.0.9':
-                # use cudnn GRU -> optimised to use GPU
-                RNN = L.CuDNNGRU
-            else:
-                RNN = L.GRU
-        elif RNN_cell == 'LSTM':
-            if keras.__version__ > '2.0.9':
-                RNN = L.CuDNNLSTM
-            else:
-                RNN = L.LSTM
-        else:
-            RNN = L.SimpleRNN
-
-    elif hasattr(RNN_cell, 'mro'):
-        # does this always work...?
-        # this checks if RNN_cell is a child of keras.layers.RNN
-        if RNN_cell.mro()[-3] == L.RNN:
-            RNN = RNN_cell
-
-    else:
-        raise ValueError("Unknown RNN_cell object!")
+    RNN = check_rnn_cell(RNN_cell)
 
     # define inputs
     VL_input = L.Input((VL_LENGTH, input_dims), dtype='float', name='VL_INPUT')
