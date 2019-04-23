@@ -16,6 +16,9 @@ def check_rnn_cell(RNN_cell):
                 RNN = L.CuDNNLSTM
             else:
                 RNN = L.LSTM
+        elif RNN_cell == "ResidualLSTM":
+            from .residual_lstm import ResidualLSTM
+            RNN = ResidualLSTM
         else:
             RNN = L.SimpleRNN
 
