@@ -6,7 +6,7 @@ from .loss_functions import get_loss
 from .model_utils import check_rnn_cell
 
 
-def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compile=True):
+def autoencoderV8(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compile=True):
 
     """
 
@@ -28,21 +28,24 @@ def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
     RNN = check_rnn_cell(RNN_cell)
 
     # define inputs
-    VL_input = L.Input((VL_LENGTH, input_dims), dtype='float', name='VL_INPUT')
-    VH_input = L.Input((VH_LENGTH, input_dims), dtype='float', name='VH_INPUT')
+    VL_input = L.Input((VL_LENGTH,), dtype='float', name='VL_INPUT')
+    VH_input = L.Input((VH_LENGTH,), dtype='float', name='VH_INPUT')
+
+    VL_embedding = L.Embedding(input_dim=input_dims, output_dim=10, name='VL_EMBEDDING')(VL_input)
+    VH_embedding = L.Embedding(input_dim=input_dims, output_dim=10, name='VH_EMBEDDING')(VH_input)
 
     def encoder(inputs):
 
         # define first recurrent layers
-        rnn_vl = RNN(32, name='VL_RNN')(inputs[0])
-        rnn_vh = RNN(32, name='VH_RNN')(inputs[1])
+        rnn_vl = L.Bidirectional(RNN(16), name='VL_bidirectional_RNN', merge_mode='sum')(inputs[0])
+        rnn_vh = L.Bidirectional(RNN(16), name='VH_bidirectional_RNN', merge_mode='sum')(inputs[1])
 
         # first dense layer of encoder
         dense_1_vl = L.Dense(32, activation='relu', name='VL_encoder_dense_1')(rnn_vl)
         dense_1_vh = L.Dense(32, activation='relu', name='VH_encoder_dense_1')(rnn_vh)
 
         # merge dense layers: concatenate [dense_1_vl, dense_1_vh]
-        merge_layer = L.merge.concatenate([dense_1_vl, dense_1_vh], name='merge_layer')
+        merge_layer = L.merge.concatenate([dense_1_vl, dense_1_vh],name='merge_layer')
 
         # add another layer to combine features from VL and VH
         dense_1 = L.Dense(32, activation='relu', name='merged_encoder_dense_1')(merge_layer)
@@ -67,7 +70,8 @@ def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
 
             repeat_vector_r_1 = L.RepeatVector(length, name='{}_decoder_repeatvector1'.format(name))(dense_r_3)
 
-            rnn_r = RNN(32, return_sequences=True, name='{}_decoder_rnn1'.format(name))(repeat_vector_r_1)
+            rnn_r = L.Bidirectional(RNN(16, return_sequences=True), merge_mode='sum',
+                                    name='{}_decoder_bidirectional_rnn1'.format(name))(repeat_vector_r_1)
 
             output_r = L.Dense(input_dims, name='{}_output'.format(name))(rnn_r)
 
@@ -75,7 +79,7 @@ def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
 
         return outputs
 
-    code = encoder([VL_input, VH_input])
+    code = encoder([VL_embedding, VH_embedding])
     reconstruction = decoder(code)
 
     autoencoder = keras.models.Model(inputs=[VL_input, VH_input], outputs=reconstruction)

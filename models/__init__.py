@@ -5,3 +5,4 @@ from .RNN_autoencoder4 import autoencoderV4
 from .RNN_autoencoder5 import autoencoderV5
 from .RNN_autoencoder6 import autoencoderV6
 from .RNN_autoencoder7 import autoencoderV7
+from .RNN_autoencoder8 import autoencoderV8

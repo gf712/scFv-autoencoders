@@ -1,12 +1,13 @@
 from keras import layers as L
 import keras
+from keras import backend as K 
 import tensorflow as tf
 from .defines import VH_LENGTH, VL_LENGTH
 from .loss_functions import get_loss
 from .model_utils import check_rnn_cell
 
 
-def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compile=True):
+def attentionmodel1(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compile=True):
 
     """
 
@@ -34,15 +35,15 @@ def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
     def encoder(inputs):
 
         # define first recurrent layers
-        rnn_vl = RNN(32, name='VL_RNN')(inputs[0])
-        rnn_vh = RNN(32, name='VH_RNN')(inputs[1])
+        rnn_vl = L.Bidirectional(RNN(16), name='VL_bidirectional_RNN', merge_mode='sum')(inputs[0])
+        rnn_vh = L.Bidirectional(RNN(16), name='VH_bidirectional_RNN', merge_mode='sum')(inputs[1])
 
         # first dense layer of encoder
         dense_1_vl = L.Dense(32, activation='relu', name='VL_encoder_dense_1')(rnn_vl)
         dense_1_vh = L.Dense(32, activation='relu', name='VH_encoder_dense_1')(rnn_vh)
 
         # merge dense layers: concatenate [dense_1_vl, dense_1_vh]
-        merge_layer = L.merge.concatenate([dense_1_vl, dense_1_vh], name='merge_layer')
+        merge_layer = L.merge.concatenate([dense_1_vl, dense_1_vh],name='merge_layer')
 
         # add another layer to combine features from VL and VH
         dense_1 = L.Dense(32, activation='relu', name='merged_encoder_dense_1')(merge_layer)
@@ -67,7 +68,8 @@ def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
 
             repeat_vector_r_1 = L.RepeatVector(length, name='{}_decoder_repeatvector1'.format(name))(dense_r_3)
 
-            rnn_r = RNN(32, return_sequences=True, name='{}_decoder_rnn1'.format(name))(repeat_vector_r_1)
+            rnn_r = L.Bidirectional(RNN(16, return_sequences=True), merge_mode='sum',
+                                    name='{}_decoder_bidirectional_rnn1'.format(name))(repeat_vector_r_1)
 
             output_r = L.Dense(input_dims, name='{}_output'.format(name))(rnn_r)
 
@@ -78,7 +80,33 @@ def autoencoderV6(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
     code = encoder([VL_input, VH_input])
     reconstruction = decoder(code)
 
-    autoencoder = keras.models.Model(inputs=[VL_input, VH_input], outputs=reconstruction)
+    def attention_mechanism(encoder_inputs, encoder_output, decoder_output):
+        attention_output = []
+        
+        for name, length, enc_i, dec_i in zip(['VL', 'VH'], [VL_LENGTH, VH_LENGTH], encoder_inputs, decoder_output):
+            
+            print(dec_i, enc_i)
+            attention = L.dot([dec_i, enc_i], axes=[2, 2])
+            attention = L.Activation('softmax')(attention)
+
+            context = L.dot([attention, enc_i], axes=[2,1])
+            decoder_combined_context = L.merge.concatenate([context, dec_i],name=f'merge_context_decoder_layer_{name}')
+            output = L.Dense(16, 
+                activation="tanh", 
+                name='{}_attention_tanh_output'.format(name))(decoder_combined_context)
+            output = L.Dense(input_dims, 
+                activation="linear", 
+                name='{}_attention_linear_output'.format(name))(output)
+
+            attention_output.append(output)
+
+        return attention_output
+
+    attention_output = attention_mechanism([VL_input, VH_input], code, reconstruction)
+
+    print(attention_output)
+
+    autoencoder = keras.models.Model(inputs=[VL_input, VH_input], outputs=attention_output)
     encoder_model = keras.models.Model(inputs=[VL_input, VH_input], outputs=code)
 
     if compile:

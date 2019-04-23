@@ -42,7 +42,7 @@ def autoencoderV7(input_dims, latent_dim=2, cuda_device=0, RNN_cell='GRU', compi
         dense_1_vh = L.Dense(32, activation='relu', name='VH_encoder_dense_1')(rnn_vh)
 
         # merge dense layers: concatenate [dense_1_vl, dense_1_vh]
-        merge_layer = L.merge([dense_1_vl, dense_1_vh], mode='concat', name='merge_layer')
+        merge_layer = L.merge.concatenate([dense_1_vl, dense_1_vh],name='merge_layer')
 
         # add another layer to combine features from VL and VH
         dense_1 = L.Dense(32, activation='relu', name='merged_encoder_dense_1')(merge_layer)

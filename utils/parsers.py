@@ -1,8 +1,26 @@
 import numpy as np
+import pandas as pd 
 
-aa_order = ['ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE',
-            'LYS', 'LEU', 'MET', 'ASN', 'PRO', 'GLN', 'ARG', 'SER',
-            'THR', 'VAL', 'TRP', 'TYR']
+aa_order = ['ALA',
+ 'ARG',
+ 'ASN',
+ 'ASP',
+ 'CYS',
+ 'GLN',
+ 'GLU',
+ 'GLY',
+ 'HIS',
+ 'ILE',
+ 'LEU',
+ 'LYS',
+ 'MET',
+ 'PHE',
+ 'PRO',
+ 'SER',
+ 'THR',
+ 'TRP',
+ 'TYR',
+ 'VAL']
 
 aa3_aa1 = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
            'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N',
@@ -80,3 +98,34 @@ def load_kabat(file):
     VL_sequences = [x[0] for x in seq]
 
     return VL_sequences, VH_sequences, names_mask, animals_mask
+
+def parse_csv(max_vh_length, max_vl_length, *args):
+    heavy_seq_list = []
+    light_seq_list = []
+    org_list = []
+    all_names = []
+    
+    heavy_seq_seen = set()
+    light_seq_seen = set()
+    
+    for file in args:
+        data = pd.read_csv(file, index_col=[0,1])
+        name_list = data.index.get_level_values(0).unique()
+
+        for name in name_list:
+            h_seq = data.loc[name].loc['heavy']['sequence']
+            l_seq = data.loc[name].loc['light']['sequence']
+            if not isinstance(h_seq, str) or not isinstance(l_seq, str):
+                continue
+            if len(h_seq) > max_vh_length or len(l_seq) > max_vl_length:
+                continue
+            if h_seq not in heavy_seq_seen and l_seq not in light_seq_seen:
+                heavy_seq_list.append(h_seq)
+                light_seq_list.append(l_seq)
+                heavy_seq_seen.add(h_seq)
+                light_seq_seen.add(l_seq)
+                org_list.append(data.loc[name].loc['light']['organism'])
+            
+        all_names.extend(name_list)
+    
+    return light_seq_list, heavy_seq_list, all_names, org_list
